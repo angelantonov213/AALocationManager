@@ -8,12 +8,18 @@
 
 import CoreLocation
 
+public enum RequestAuthorizationType {
+    case whenInUse
+    case always
+}
+
 public protocol LocationManager {
     var delegate: CLLocationManagerDelegate? { get set }
     
     func startUpdatingLocation()
     func stopUpdatingLocation()
     func requestWhenInUseAuthorization()
+    func requestAlwaysAuthorization()
     
     static func locationServicesEnabled() -> Bool
     static func authorizationStatus() -> CLAuthorizationStatus
@@ -33,6 +39,8 @@ public class AALocationManager: NSObject {
     private var locationUpdatesCounter: Int
     private var locationManagerType: LocationManager.Type
     
+    private var requestAuthorizationType: RequestAuthorizationType
+    
     public var locationFound: ((CLLocation) -> ())?
     public var informationMessage: ((String) -> ())?
     
@@ -45,10 +53,12 @@ public class AALocationManager: NSObject {
     /**
      - Parameters:
         - maxLocationUpdates: Determines how much times locationManagers didUpdateLocations method will be called.
+        - requestAuthorizationType: Determines wether it calls requestWhenInUseAuthorization() or requestAlwaysAuthorization() of the location manager
         - locationManager: CLLocationManager that could be used for unit tests
         - locationManagerType: CLLocationManager type that could be used for unit tests
      */
     public init(maxLocationUpdates: Int = -1,
+         requestAuthorizationType: RequestAuthorizationType = .whenInUse,
          locationManager: LocationManager = CLLocationManager(),
          locationManagerType: LocationManager.Type = CLLocationManager.self) {
         self.locationManager = locationManager
@@ -56,6 +66,8 @@ public class AALocationManager: NSObject {
         
         self.maxLocationUpdates = maxLocationUpdates
         self.locationUpdatesCounter = maxLocationUpdates
+        
+        self.requestAuthorizationType = requestAuthorizationType
         
         super.init()
         
@@ -85,7 +97,12 @@ public class AALocationManager: NSObject {
         if self.locationManagerType.locationServicesEnabled() {
             switch self.locationManagerType.authorizationStatus() {
             case .notDetermined:
-                self.locationManager.requestWhenInUseAuthorization()
+                switch requestAuthorizationType {
+                case .whenInUse:
+                    self.locationManager.requestWhenInUseAuthorization()
+                case .always:
+                    self.locationManager.requestAlwaysAuthorization()
+                }
             case .restricted:
                 self.informationMessage?(self.authorizationStatusRestrictedMessage)
             case .denied:
